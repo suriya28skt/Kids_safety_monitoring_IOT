@@ -1,0 +1,314 @@
+#include<pic.h>
+#include"pic_lcd4.h"
+#include"pic_adc.h"
+#include"pic_serial.h"
+
+
+
+#define set RC0                                 //
+#define inc RC1
+#define dec RC2
+#define mov RC3
+#define ent RE0
+
+
+#define KEY RB1
+
+
+
+
+
+
+
+
+void Mobile_Init();
+void Msg_Send();
+void Msg_send1();
+void gps();
+void keypad();
+void receive();
+void set_receive_time();
+
+void send_data(unsigned int);
+void send_msg();
+ void get_time();
+
+void msg_send_start();
+
+
+bit vv=0;
+bit rr=0;
+
+
+unsigned char a[80],m=0,d=0,read=0,rec,act=1,unit=1,gas_r=0,m,tem,ab[30],mm,tem,mois;
+unsigned char mon,dat,hh,min,act_time=0,sec2,dis=0,ldr,tt=0,aa=0;
+
+
+unsigned char i1,b[15],h,sec,count,k,c,i,aa,bb,rx[10],k1,mode=0;
+
+unsigned char m_sec,pulse,gg=0,sec1,mois,level,adc=0,glu,dial=0;
+
+unsigned int amount=0,hb,hb1,time=190;
+
+unsigned int vib=0,kk=0;;
+
+
+
+
+void interrupt timer2(void)
+{
+      if(T0IF==1)
+	{
+		T0IF=0;
+		m_sec++;
+		if(m_sec>20)
+		{
+			sec++;
+                               sec2++;
+                              
+                              
+			m_sec=0;
+		}
+	     
+		TMR0=0x3c;
+     }
+   
+    if(RCIF==1)
+	{ 
+	      RCIF=0;	
+	 
+                a[m] = RCREG;
+           
+                 if(a[0] == '*'){m++;}
+             
+              
+            }        
+  if(INTF == 1)
+  {
+      INTF = 0;
+     pulse++;
+
+  }
+
+}
+
+
+
+
+void main()
+{
+
+   int l_i=0;
+   ADCON1 = 0x02;
+   TRISA=0XFF;
+   TRISB=0xFF;
+   TRISC=0xCF;
+   TRISD=0x00;
+   TRISE =0b111;
+
+  PORTC = 0xFF;
+  
+  
+    Lcd4_Init();
+    Delay(5000);
+     PORTB = 0xFF;
+
+     GIE=1;
+      PEIE=1;
+      TMR0=0x3c;
+      T0IE=1;
+      OPTION=0x07;
+      TMR0IE=0;
+       TMR0IE=1;
+    
+     
+
+     INTE = 1;
+     INTEDG = 0;
+
+   
+   Lcd4_Display(0xC0," CHILD SAFETY          ",16);
+    Lcd4_Display(0x80," SYSTEM                     ",16);
+   
+   
+    Delay(65000);Delay(65000);
+Serial_Init(9600);
+Receive(0);
+ 
+    Mobile_Init();
+    for(i=0;i<10;i++){b[i]=EEPROM_READ(i);Delay(500);Lcd4_Write(0xc4+i,b[i]);}
+ 
+    Lcd4_Command(0x01);
+   Delay(65000);
+    Lcd4_Command(0x0C);
+
+  
+
+while(1)
+{
+
+    vib = Adc8_Cha(0);
+    
+ 
+// Lcd4_Decimal3(0x82,vib);
+
+ if(vib < 150){vv = 1;Lcd4_Display(0x80,"V:D",3);Delay(65000);Delay(65000);Delay(65000);}
+ else{vv = 0;Lcd4_Display(0x80,"V:N",3);}
+
+
+Lcd4_Display(0xc0,"HB:",3);
+ Lcd4_Decimal3(0x8c,sec);
+
+ Lcd4_Decimal3(0xcc,sec2);
+
+ Lcd4_Decimal3(0xc3,hb);
+
+if(KEY){Lcd4_Display(0x87,"KY",2);kk=1;}
+else{Lcd4_Display(0x87,"  ",2);kk=0;}
+
+
+if(sec > 10)
+{
+  sec = 0;
+
+  pulse = 0;
+
+}
+   
+
+  if(sec2 > 60 || vv == 1)
+ {
+     Msg_Send();
+     sec2 = 0;
+
+ } 
+else
+{
+   if(kk == 0)
+    {
+       if(sec2 > 10)
+        {
+               Msg_Send();
+                sec2 = 0;
+
+        } 
+    }
+
+}
+      
+     if(!set){keypad();}
+
+
+
+    
+
+
+  
+
+ }
+}
+
+
+
+void keypad()
+{
+	unsigned char k=0,c=0;
+
+	
+	Lcd4_Display(0x80,"ENTER MOBILE NO:",16);
+	Lcd4_Display(0xC0,"                ",16);
+	Lcd4_Command(0x0e);
+	Delay(65000);
+	while(ent)
+	{		
+		Lcd4_Command(0xc0+k);
+		if(!inc){while(!inc)Delay(650);c++;if(c>9)c=0;b[k]=c+0x30;Lcd4_Write(0xc0+k,b[k]);}
+		if(!dec){while(!dec)Delay(650);c--;if(c>9)c=9;b[k]=c+0x30;Lcd4_Write(0xc0+k,b[k]);}
+		if(!mov){while(!mov)Delay(650);k++;if(k>9){k=0;}}
+	}
+	Lcd4_Command(0x0c);
+	Lcd4_Display(0x80,"MOBILE NO STORED",16);
+	Lcd4_Display(0xc0,"                ",16);
+
+	for(i=0;i<10;i++){EEPROM_WRITE(i,b[i]);Delay(5000);}
+
+	for(i=0;i<10;i++){b[i]=EEPROM_READ(i);Delay(6500);Lcd4_Write(0xc4+i,b[i]);}
+
+	Delay(65000);Lcd4_Command(0x01);
+      Delay(65000);
+	
+
+}
+
+void Mobile_Init()
+{
+Lcd4_Display(0x80,"Initz...........",16 );
+	Serial_Conout("AT",2);
+	Serial_Out(0x0d);Serial_Out(0x0a);
+	Delay(65000);Delay(65000);	
+	
+	Serial_Conout("AT+CMGF=1",9);
+	Serial_Out(0x0d);Serial_Out(0x0a);
+	Delay(65000);Delay(65000);
+
+    Serial_Conout("AT+CNMI=2,2,0,0,0",17);
+	Serial_Out(0x0d);Serial_Out(0x0a);
+		Delay(65000);Delay(65000);
+	
+}
+
+void Msg_Send()
+{ 
+ unsigned char i=0;
+  Lcd4_Display(0x80,"MESSAGE SENDING ",16 );
+ Lcd4_Display(0xC0,"................",16 );	  	  	
+ Serial_Conout("AT+CMGS=",8);      		                     		
+ Serial_Out('"');
+ //Serial_Conout("9524095378",10);
+for(i=0;i<10;i++){//b[i]=EEPROM_READ(i);Delay(6500);
+ Lcd4_Write(0xc4+i,b[i]);Serial_Out(b[i]);}
+ Serial_Out('"');
+ Serial_Out(0x0d);Serial_Out(0x0a);
+	Delay(65000);Delay(65000);
+ send_msg();
+  
+}
+
+void send_msg()
+{
+ 
+ 
+   
+   send_data(hb);
+   Serial_Out('?');
+   if(vv){Serial_Out('1');}
+  else{Serial_Out('0');}
+  Serial_Out('?');
+
+  if(kk){Serial_Out('1');}
+  else{Serial_Out('0');}
+    Serial_Out('?');
+
+  
+
+  Serial_Out(0x0d);Serial_Out(0x0a);
+  	Delay(65000);Delay(65000);	
+   Serial_Out(0x1a);
+   Lcd4_Command(0x0C);
+  Delay(65000); Delay(65000); 
+   Lcd4_Command(0x01);
+  Delay(65000); Delay(65000); 
+   
+  Delay(65000);Delay(65000);
+
+}
+
+void send_data(unsigned int jk)
+{
+      //Serial_Out(jk%10000/1000+0x30);
+	Serial_Out(jk%1000/100+0x30);
+	Serial_Out(jk%100/10+0x30);
+	Serial_Out(jk%10/1+0x30);
+}
+
+
